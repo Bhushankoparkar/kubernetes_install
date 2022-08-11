@@ -1,0 +1,358 @@
+#######$$$ INSTALATION  $$$########
+
+> Create 1 ec2-instance 
+> roll create and attach to instance (AdministratorAccess)
+
+######Installing kubectl#######
+
+> kubectl version | grep Client | cut -d : -f 5 ----Determine whether you already have kubectl installed on your device.
+> curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.22.6/2022-03-09/bin/linux/amd64/kubectl
+> openssl sha1 -sha256 kubectl -----------Check the SHA-256 sum for your downloaded binary
+> chmod +x ./kubectl
+> mkdir -p $HOME/bin && cp ./kubectl $HOME/bin/kubectl && export PATH=$PATH:$HOME/bin
+> echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc 
+> kubectl version --short --client ---------version check 
+
+
+#########Installing eksctl #############
+
+> eksctl version-----version check
+> curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp -----------------------Download and extract the latest release of eksctl 
+> sudo mv /tmp/eksctl /usr/local/bin ------------------Move the extracted binary to /usr/local/bin.
+> eksctl version --------version check 
+
+> eksctl create cluster \
+    --name my-cluster \
+    --version 1.22 \
+    --region eu-central-1\
+    --nodegroup-name art-linux-nodes\
+    --nodes 5
+
+ cluster creation take 15min to 20min.
+ after creating cluster use below commnad then
+ 
+> kubectl get nodes
+
+
+########Installing aws-iam-authenticator########
+   
+> curl -o aws-iam-authenticator https://s3.us-west-2.amazonaws.com/amazon-eks/1.21.2/2021-07-05/bin/linux/amd64/aws-iam-authenticator -------------To install aws-iam-authenticator
+       ---> there is create .kube file. 
+       ---> cluster relatave information present in .kube file.
+> cd .kube
+> ls -a ----- configuration file { config } ------cluster relatave information present.
+> curl -o aws-iam-authenticator.sha256 https://s3.us-west-2.amazonaws.com/amazon-eks/1.21.2/2021-07-05/bin/linux/amd64/aws-iam-authenticator.sha256
+> openssl sha1 -sha256 aws-iam-authenticator 
+> chmod +x ./aws-iam-authenticator
+> mkdir -p $HOME/bin && cp ./aws-iam-authenticator $HOME/bin/aws-iam-authenticator && export PATH=$PATH:$HOME/bin
+> echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc 
+> aws-iam-authenticator help
+> kubectl get nodes ------show 5 node create.
+
+   ----> then check in ec2 region eu-central-1 5 cluster create there.
+
+> kubectl create deployment nginx --image nginx 
+> kubectl expose deployment nginx --port 80 --type=LoadBalancer  
+> kubectl get pods -A                            |
+> kubectl get pods                               |
+> kubectl get svc --------service info check     |
+                                                 |
+                                                 |--------check one loadbalancer create in region eu-central-1 
+                                                           Loadbalancer DNS name and past on google crome..
+
+
+> kubectl get pods ---------pode list
+> kubectl get pod <--pode name--> -o yaml   ------------pod output as yaml
+> kubectl get svc nginx -o yaml
+> kubectl get pods
+> kubectl describe pod < --pod name-- >  ----------------------------high level information of POD-| 
+> kubectl create deployment art-mongo --image mongo ------------------- image create               |
+> kubectl describe pod <Pod name>   -------------- container create mongo                          |<<MOST-IMPORTANT COMMAND>>
+> kubectl get pods ---------pode list                                                              |
+> kubectl logs <pod-name> ---------------log check                                                 |
+> kubectl logs -f pod/<pod-name>   -------------------------------------------------truble shootin-|
+> kubectl delete pod <pod-name>  ------------------------------pod delete
+> kubectl get pods --watch  ---------------------we delete pod but the pod is not delete it show pod list
+> kubectl delete deployment nginx ------------------permanent delete pod & it will not show in --watch command also.
+
+>>> cluster delete after all work <<<
+> eksctl delete nodegroup \
+    --cluster my-cluster \
+    --region eu-central-1\
+    --name art-linux-nodes
+                    ----------------------delete cluster on console.
+\\\\\\\\  then manually cluste delete & Loadbalancer & All security Group  /////////////
+######################################################################################################################################################################################
+
+---------------|
+Date:-9-8-2022 |
+_______________|
+--TOPIC 
+ *_Pod
+ *_services
+
+
+>>> mkdir kube-lab
+>>>>>> POD create & service create <<<<<<<<
+> vim sample-pod.yaml
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: nginx
+      spec:
+        containers:
+        - name: nginx
+          image: nginx:1.14.2
+          ports:
+           - containerPort: 80
+
+  :wq
+
+> kubectl apply -f simple-pod.yaml
+> kubwctl get pods
+> kebuctl exec -it art-pod bash
+  curl localhost
+
+
+>>>> service create 
+> vim service-pod.yaml
+
+      apiVersion: v1
+      kind: service
+      metadata:
+        name: service-pod1
+      spec:
+        selector:
+           app.kubernetes.io/name: myapp
+	type: LoadBalancer
+        ports: 
+	- protocol: TCP
+          port: 80
+          targetPort: 80
+
+
+  :wq
+
+> kubectl apply -f service-pod.yaml
+> kubectl get svc
+> kubectl describe service service-pod1
+> kubectl delete -f service-pod.yaml  ----------------Delete Pod Service
+
+
+
+>>>>>>> POD create & service create <<<<<<<
+> vim weather-po.yaml
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: myapp
+	labels: 
+	   app: myapp
+      spec:
+        containers:
+        - name: myapp
+          image: taniruddhar/art-app:v4
+          ports:
+           - containerPort: 3000
+
+
+  :wq
+
+> kubectl apply -f weather-po.yaml
+
+
+>>>service create 
+> vim weather-service.yaml
+
+      apiVersion: v1
+      kind: service
+      metadata:
+        name: service-pod1
+      spec:
+        selector:
+           app: myapp
+	type: LoadBalancer
+        ports: 
+	- protocol: TCP
+          port: 80
+          targetPort: 3000
+
+  :wq
+
+> kubectl apply -f weather-service.yaml
+> kubectl get svc 
+> kubectl descibe service-pod1  -----------------End point show.
+
+#############################################################################################################################################################################
+____________
+10-08-2022 |
+-----------|
+
+--TOPIC
+*_Deployment
+
+
+> There are Two type of Application 
+1) Statefull:- Database Application (e.g mongodb, mysql not recommeded). We use 3rd party tool Elk, Graphan.
+2) Stateless:- Customize Application(e.g nginx, Tomcat, java base Application)
+
+>>>>> Deployment service <<<<<<
+> mkdir kub-lab
+> vim deployemnt1.yaml
+ apiVersion: v1
+ kind: service
+ metadata:
+    name: art-deployment
+ spec:
+    replicas: 3
+    selector:
+      matchLabels:
+        app: nginx
+    template:
+      metadata:
+        labels:
+          app: nginx
+      spec:
+        containers: 
+        - name: nginx-container
+          iamge: nginx
+          ports:
+            - containerPort: 80
+
+ :wq
+
+> kubectl apply -f deployment1.yaml
+> kubectl get pods
+
+
+>>>> service <<<
+> vim service.yaml
+
+apiVersion: v1
+kind: service
+metadata:
+    name: service-pod1
+spec:
+    selector:
+      app: myapp
+    type: Loadbalancer
+    ports: 
+    - port: 80
+      targetPort: 80
+
+ :wq
+
+> kubectl apply -f service.yaml
+> kubectl describe svc nginx-service
+> kubectl get svc
+> kubectl delete -f kube-lab/
+
+
+
+>>>>>>>> ConfigMap <<<<<<<<<<
+
+> cd kube-lab/
+> vim configmap.yaml
+
+apiVersion: v1
+kind: service
+metadata:
+    name: service-pod1
+date: 
+    statement: This is Bhushan        
+
+:wq
+
+> kubectl apply -f ConfigMap.yaml
+> 
+
+>>>>>>> call <<<<<<<<<<<
+> vim callconfigmap.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: art-pod
+  labels:
+    name: art-pod
+spec:
+  containers:
+  - name: busybox
+    image: busybox
+    command: [" sh", "-c", "echo_$CONFIGVAR"] 
+    env: 
+    - name: CONFIGVAR
+      valueFrom:
+        configMapKeyRef: 
+          name: art-configmap
+          key: statement
+          
+ :wq
+
+> kubectl apply -f callconfigmap.yaml
+> kubectl get pods
+> kubectl get pods --watch
+> kubectl logs art-pod  ------------------------------------- it will show ( This is Bhushan )
+
+
+
+
+
+>>>>>> secrets <<<<<<
+> echo -n 'root' | base64
+> echo -n 'password' | base64
+> vim secrets.yaml
+
+apiVersion: v1
+kind: secret
+metadata:
+    name: art-secrets
+type: Opaque   
+data: 
+  username: cm9vdA==
+  password: cGFzc3dvcmQ=
+
+:wq 
+
+> kubectl apply -f secrets.yaml
+> kubectl get secrets --------------------It show secret 
+
+
+>>>>> callsecrets.yaml <<<<<<<<<<<
+
+> vim callsecrets.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: art-pod
+  labels:
+    name: art-pod1
+spec:
+  containers:
+  - name: busybox
+    image: busybox
+    command: [" sh", "-c", "echo username is $SECRETVAR"] 
+    env: 
+    - name: SECRETVAR
+      valueFrom:
+        secretKeyRef: 
+          name: art-secrets
+          key: username
+
+
+ :wq
+
+
+> kubectl apply -f callsecrets.yaml 
+> kubectl get pods --watch 
+> kubectl logs art-pod1 ----------------------It show username is 'root'
+
+
+
+
+
+
+
+
+
